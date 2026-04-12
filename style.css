@@ -653,6 +653,41 @@ body.immersed.touch-reveal #controls {
 
 .guide-list li strong { color: var(--text); font-weight: 500; }
 
+.theory-box {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  margin-bottom: 16px;
+}
+
+.theory-box h4 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.theory-box p {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+
+.theory-box p:last-child { margin-bottom: 0; }
+
+.theory-box strong { color: var(--text); font-weight: 500; }
+.theory-box em { color: var(--amber); font-style: normal; font-weight: 500; }
+
+.theory-note {
+  margin-top: 12px !important;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-style: italic !important;
+  color: var(--text-faint) !important;
+}
+
 .safety-box {
   padding: 14px;
   border: 1px solid var(--red-subtle);
