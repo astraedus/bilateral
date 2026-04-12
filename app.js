@@ -174,6 +174,11 @@
       if (prevSin < 0 && sinVal >= 0) bilateral('left');
       if (prevSin > 0 && sinVal <= 0) bilateral('right');
 
+      // Smooth bilateral audio panning — follows dot position continuously
+      if (S.audio && S.pan && S.toneType !== 'click') {
+        S.pan.pan.setTargetAtTime(pos * 2 - 1, S.ctx.currentTime, 0.015);
+      }
+
       // Update dot position
       if (S.visual) {
         const pad = 40; // px padding from edges
@@ -189,10 +194,7 @@
   }
 
   function bilateral(side) {
-    // Audio panning
-    if (S.audio && S.pan && S.toneType !== 'click') {
-      S.pan.pan.setTargetAtTime(side === 'left' ? -1 : 1, S.ctx.currentTime, 0.015);
-    }
+    // Continuous tones pan smoothly in animate() — clicks snap discretely here
     // Click sound
     if (S.audio && S.toneType === 'click' && S.ctx) {
       const o = S.ctx.createOscillator();

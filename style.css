@@ -83,9 +83,9 @@ html, body {
   background: var(--dot-color);
   box-shadow:
     0 0 6px 2px var(--dot-color),
-    0 0 15px 5px var(--amber-50),
-    0 0 40px 10px var(--amber-20),
-    0 0 80px 20px var(--amber-08);
+    0 0 15px 5px color-mix(in srgb, var(--dot-color) 50%, transparent),
+    0 0 40px 10px color-mix(in srgb, var(--dot-color) 20%, transparent),
+    0 0 80px 20px color-mix(in srgb, var(--dot-color) 8%, transparent);
   transition: transform 0.3s var(--ease);
 }
 
@@ -115,7 +115,7 @@ html, body {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  border: 1px solid var(--amber-20);
+  border: 2px solid var(--amber-20);
   animation: breathe-ring 8s ease-in-out infinite;
   margin-bottom: 32px;
   position: relative;
