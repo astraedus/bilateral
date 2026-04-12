@@ -4,315 +4,223 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Bilateral — Free EMDR Bilateral Stimulation</title>
-  <meta name="description" content="Free, open-source EMDR bilateral stimulation tool with visual, audio, and haptic modes. No account, no tracking, no paywall. Configurable speed, tone, and timing.">
-  <meta name="keywords" content="EMDR, bilateral stimulation, eye movement, therapy tool, anxiety relief, trauma processing, free EMDR, bilateral tones, light bar">
+  <meta name="description" content="Free, open-source EMDR bilateral stimulation tool with visual, audio, and haptic modes. Configurable speed, timing, and tone. No account, no tracking, no paywall.">
+  <meta name="keywords" content="EMDR, bilateral stimulation, eye movement, therapy tool, anxiety relief, trauma processing, free EMDR, bilateral tones, light bar, stress relief, grounding">
   <meta property="og:title" content="Bilateral — Free EMDR Bilateral Stimulation">
   <meta property="og:description" content="Visual, audio, and haptic bilateral stimulation. Completely free. No account. No tracking.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#08080C">
-  <link rel="canonical" href="https://bilateral.astraedus.dev">
+  <link rel="canonical" href="https://astraedus.github.io/bilateral/">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23F5A623'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <!-- Header -->
-    <header id="header">
-      <div class="header-left">
-        <div class="logo-mark"></div>
-        <span class="logo-text">bilateral</span>
-      </div>
-      <button id="fullscreen-btn" class="icon-btn" title="Fullscreen" aria-label="Toggle fullscreen">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
-        </svg>
-      </button>
-    </header>
 
-    <!-- Stimulation Area -->
-    <div id="stimulation-area">
-      <div id="track">
-        <div id="dot"></div>
-      </div>
-      <!-- Rest overlay -->
-      <div id="rest-overlay" class="hidden">
-        <p class="rest-text">What do you notice?</p>
-        <p class="rest-subtext">Take a breath. Let it arrive.</p>
-      </div>
+  <!-- The Canvas — full viewport, the dot lives here -->
+  <div id="canvas">
+    <div id="dot">
+      <div class="dot-core"></div>
     </div>
 
-    <!-- Set Progress -->
-    <div id="set-progress" class="hidden">
+    <!-- Rest overlay — between sets -->
+    <div id="rest-screen" class="hidden">
+      <div class="breath-ring"></div>
+      <p class="rest-prompt">What do you notice?</p>
+      <p class="rest-sub">Take a breath. Let it arrive.</p>
+    </div>
+
+    <!-- Session complete -->
+    <div id="complete-screen" class="hidden">
+      <p class="complete-title">Session complete</p>
+      <p class="complete-sub" id="complete-msg"></p>
+      <button class="btn-ghost" id="restart-btn">Start another</button>
+    </div>
+
+    <!-- First-time hint -->
+    <div id="intro" class="hidden">
+      <p class="intro-text">Follow the light with your eyes.<br>Hold a thought loosely in mind.</p>
+      <button class="btn-warm" id="intro-dismiss">I understand</button>
+    </div>
+  </div>
+
+  <!-- Floating Controls -->
+  <div id="controls">
+    <!-- Transport row -->
+    <div class="ctrl-row transport-row">
+      <button id="start-btn" class="btn-start" aria-label="Start">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button id="pause-btn" class="btn-start hidden" aria-label="Pause">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <button id="stop-btn" class="btn-stop hidden" aria-label="Stop">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+
+      <div class="ctrl-divider"></div>
+
+      <!-- Modes -->
+      <button class="mode-pill active" data-mode="visual" aria-label="Visual mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+      </button>
+      <button class="mode-pill" data-mode="audio" aria-label="Audio mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+      </button>
+      <button class="mode-pill" data-mode="haptic" aria-label="Haptic mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5.5 12H2m20 0h-3.5M12 5.5V2m0 20v-3.5"/><circle cx="12" cy="12" r="4"/></svg>
+      </button>
+
+      <div class="ctrl-divider"></div>
+
+      <!-- Speed -->
+      <div class="speed-inline">
+        <input type="range" id="speed-slider" min="0.3" max="2.5" step="0.1" value="1.0" class="slider-mini" aria-label="Speed">
+        <span id="speed-val" class="speed-label">1.0</span>
+      </div>
+
+      <div class="ctrl-divider"></div>
+
+      <!-- Settings toggle -->
+      <button id="settings-toggle" class="btn-icon" aria-label="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+
+      <!-- Info toggle -->
+      <button id="info-toggle" class="btn-icon" aria-label="How to use">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
+    </div>
+
+    <!-- Set progress (visible during session) -->
+    <div id="set-bar" class="hidden">
       <div id="set-dots"></div>
-      <span id="timer-display" class="timer">0:30</span>
+      <span id="timer" class="timer-text">0:30</span>
     </div>
+  </div>
 
-    <!-- Transport -->
-    <div id="transport">
-      <button id="start-btn" class="transport-btn primary">
-        <svg class="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-        <span>Start</span>
-      </button>
-      <button id="pause-btn" class="transport-btn primary hidden">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-        </svg>
-        <span>Pause</span>
-      </button>
-      <button id="stop-btn" class="transport-btn secondary hidden">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="6" width="12" height="12" rx="2"/>
-        </svg>
-        <span>Stop</span>
-      </button>
-    </div>
+  <!-- Settings Drawer -->
+  <div id="settings-drawer" class="drawer hidden">
+    <div class="drawer-handle" id="drawer-close"></div>
+    <div class="drawer-body">
+      <h3 class="drawer-title">Settings</h3>
 
-    <!-- Mode Selection -->
-    <div id="modes">
-      <button class="mode-btn active" data-mode="visual">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-        </svg>
-        <span>Visual</span>
-      </button>
-      <button class="mode-btn" data-mode="audio">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-        </svg>
-        <span>Audio</span>
-      </button>
-      <button class="mode-btn" data-mode="haptic">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M5.5 12H2m20 0h-3.5M12 5.5V2m0 20v-3.5"/><circle cx="12" cy="12" r="4"/>
-        </svg>
-        <span>Haptic</span>
-      </button>
-    </div>
+      <div class="setting-section">
+        <h4>Set Timer</h4>
+        <div class="s-row">
+          <span>Duration</span>
+          <input type="range" id="set-dur" min="10" max="120" step="5" value="30" class="slider-sm">
+          <span id="set-dur-v" class="s-val">30s</span>
+        </div>
+        <div class="s-row">
+          <span>Rest</span>
+          <input type="range" id="rest-dur" min="5" max="60" step="5" value="10" class="slider-sm">
+          <span id="rest-dur-v" class="s-val">10s</span>
+        </div>
+        <div class="s-row">
+          <span>Sets</span>
+          <input type="range" id="num-sets" min="1" max="20" step="1" value="6" class="slider-sm">
+          <span id="num-sets-v" class="s-val">6</span>
+        </div>
+        <label class="toggle-row">
+          <span>Auto-advance</span>
+          <input type="checkbox" id="auto-adv" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+      </div>
 
-    <!-- Speed Control -->
-    <div id="speed-control" class="control-group">
-      <label>
-        <span class="label-text">Speed</span>
-        <span id="speed-value" class="label-value">1.0 Hz</span>
-      </label>
-      <input type="range" id="speed-slider" min="0.3" max="2.5" step="0.1" value="1.0" class="slider">
-      <div class="range-labels">
-        <span>Slow</span>
-        <span>Fast</span>
+      <div class="setting-section">
+        <h4>Audio</h4>
+        <p class="s-note">Headphones recommended for bilateral effect.</p>
+        <div class="chip-row">
+          <button class="chip active" data-tone="sine">Tone</button>
+          <button class="chip" data-tone="click">Click</button>
+          <button class="chip" data-tone="nature">Rain</button>
+        </div>
+        <div class="s-row" id="freq-row">
+          <span>Frequency</span>
+          <input type="range" id="freq" min="200" max="800" step="10" value="440" class="slider-sm">
+          <span id="freq-v" class="s-val">440 Hz</span>
+        </div>
+        <div class="s-row">
+          <span>Volume</span>
+          <input type="range" id="vol" min="0" max="100" step="5" value="50" class="slider-sm">
+          <span id="vol-v" class="s-val">50%</span>
+        </div>
+      </div>
+
+      <div class="setting-section">
+        <h4>Visual</h4>
+        <div class="s-row">
+          <span>Dot size</span>
+          <input type="range" id="dot-size" min="12" max="50" step="2" value="22" class="slider-sm">
+          <span id="dot-size-v" class="s-val">22px</span>
+        </div>
+        <div class="s-row">
+          <span>Colour</span>
+          <div class="swatch-row">
+            <button class="swatch active" data-c="#F5A623" style="--sw:#F5A623" aria-label="Amber"></button>
+            <button class="swatch" data-c="#E8B4B8" style="--sw:#E8B4B8" aria-label="Rose"></button>
+            <button class="swatch" data-c="#4ECDC4" style="--sw:#4ECDC4" aria-label="Teal"></button>
+            <button class="swatch" data-c="#A78BFA" style="--sw:#A78BFA" aria-label="Violet"></button>
+            <button class="swatch" data-c="#F9F4EF" style="--sw:#F9F4EF" aria-label="Warm white"></button>
+            <button class="swatch" data-c="#6EE7B7" style="--sw:#6EE7B7" aria-label="Mint"></button>
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Collapsible Panels -->
-    <div id="panels">
+  <!-- Info Drawer -->
+  <div id="info-drawer" class="drawer hidden">
+    <div class="drawer-handle" id="info-close"></div>
+    <div class="drawer-body">
+      <h3 class="drawer-title">How to use this</h3>
+      <ol class="guide-list">
+        <li><strong>Choose something mild.</strong> A thought at 3/10 intensity, not 10/10. Or a calm memory if you just want to relax.</li>
+        <li><strong>Rate the distress 0–10</strong> in your head. Just notice the number.</li>
+        <li><strong>Press Start.</strong> Follow the dot with your eyes. Keep the thought loosely in mind. Don't force anything.</li>
+        <li><strong>When the set ends, pause.</strong> Notice: did anything shift? A new thought? A body sensation?</li>
+        <li><strong>If distress dropped,</strong> try another set. If something new surfaced, follow that instead.</li>
+        <li><strong>Stop whenever you want.</strong> There is no wrong way to end.</li>
+      </ol>
 
-      <!-- Set Timer Settings -->
-      <details class="panel">
-        <summary>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-          </svg>
-          Set Timer
-          <span class="chevron"></span>
-        </summary>
-        <div class="panel-content">
-          <div class="setting-row">
-            <label for="set-duration">Set duration</label>
-            <div class="setting-input">
-              <input type="range" id="set-duration" min="10" max="120" step="5" value="30" class="slider slider-sm">
-              <span id="set-duration-val" class="setting-val">30s</span>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label for="rest-duration">Rest between sets</label>
-            <div class="setting-input">
-              <input type="range" id="rest-duration" min="5" max="60" step="5" value="10" class="slider slider-sm">
-              <span id="rest-duration-val" class="setting-val">10s</span>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label for="num-sets">Number of sets</label>
-            <div class="setting-input">
-              <input type="range" id="num-sets" min="1" max="20" step="1" value="6" class="slider slider-sm">
-              <span id="num-sets-val" class="setting-val">6</span>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label class="toggle-label">
-              <span>Auto-advance sets</span>
-              <input type="checkbox" id="auto-advance" checked>
-              <span class="toggle"></span>
-            </label>
-          </div>
-        </div>
-      </details>
-
-      <!-- Audio Settings -->
-      <details class="panel" id="audio-panel">
-        <summary>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
-          </svg>
-          Audio Settings
-          <span class="chevron"></span>
-        </summary>
-        <div class="panel-content">
-          <p class="panel-note">Headphones recommended for bilateral audio.</p>
-          <div class="setting-row">
-            <label>Tone type</label>
-            <div class="tone-options">
-              <button class="chip active" data-tone="sine">Sine</button>
-              <button class="chip" data-tone="click">Click</button>
-              <button class="chip" data-tone="nature">Rain</button>
-            </div>
-          </div>
-          <div class="setting-row" id="freq-row">
-            <label for="audio-freq">Frequency</label>
-            <div class="setting-input">
-              <input type="range" id="audio-freq" min="200" max="800" step="10" value="440" class="slider slider-sm">
-              <span id="audio-freq-val" class="setting-val">440 Hz</span>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label for="audio-vol">Volume</label>
-            <div class="setting-input">
-              <input type="range" id="audio-vol" min="0" max="100" step="5" value="50" class="slider slider-sm">
-              <span id="audio-vol-val" class="setting-val">50%</span>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <!-- Visual Settings -->
-      <details class="panel" id="visual-panel">
-        <summary>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
-          Visual Settings
-          <span class="chevron"></span>
-        </summary>
-        <div class="panel-content">
-          <div class="setting-row">
-            <label for="dot-size">Dot size</label>
-            <div class="setting-input">
-              <input type="range" id="dot-size" min="10" max="50" step="2" value="22" class="slider slider-sm">
-              <span id="dot-size-val" class="setting-val">22px</span>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label>Dot colour</label>
-            <div class="colour-options">
-              <button class="colour-swatch active" data-colour="#F5A623" style="--c:#F5A623" title="Amber"></button>
-              <button class="colour-swatch" data-colour="#E8B4B8" style="--c:#E8B4B8" title="Rose"></button>
-              <button class="colour-swatch" data-colour="#4ECDC4" style="--c:#4ECDC4" title="Teal"></button>
-              <button class="colour-swatch" data-colour="#A78BFA" style="--c:#A78BFA" title="Violet"></button>
-              <button class="colour-swatch" data-colour="#F9F4EF" style="--c:#F9F4EF" title="Warm White"></button>
-              <button class="colour-swatch" data-colour="#6EE7B7" style="--c:#6EE7B7" title="Mint"></button>
-            </div>
-          </div>
-          <div class="setting-row">
-            <label>Trail effect</label>
-            <div class="tone-options">
-              <button class="chip active" data-trail="none">None</button>
-              <button class="chip" data-trail="soft">Soft</button>
-              <button class="chip" data-trail="comet">Comet</button>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <!-- How To Use -->
-      <details class="panel guide-panel">
-        <summary>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          How to use this
-          <span class="chevron"></span>
-        </summary>
-        <div class="panel-content guide-content">
-          <ol class="guide-steps">
-            <li>
-              <strong>Choose something mild.</strong>
-              Think of something mildly stressful (3/10, not 10/10). Or a safe, calm memory if you just want to relax.
-            </li>
-            <li>
-              <strong>Rate the distress 0-10</strong> in your head. Don't write it down. Just notice the number.
-            </li>
-            <li>
-              <strong>Press Start.</strong> Follow the dot with your eyes, or listen to the tones. Keep the thought loosely in mind. Don't force anything.
-            </li>
-            <li>
-              <strong>When the set ends, pause.</strong> Take a breath. Notice: did anything shift? A new thought? A body sensation? An image?
-            </li>
-            <li>
-              <strong>If distress went down,</strong> try another set with the same thought. If something new came up, follow that instead.
-            </li>
-            <li>
-              <strong>Stop whenever you want.</strong> There is no wrong way to end.
-            </li>
-          </ol>
-        </div>
-      </details>
-    </div>
-
-    <!-- Safety Notice -->
-    <footer id="safety">
-      <div class="safety-content">
-        <div class="safety-header">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          <span>This is not therapy.</span>
-        </div>
+      <div class="safety-box">
+        <p class="safety-title">This is not therapy.</p>
         <p>For processing specific traumatic memories, work with a trained EMDR therapist. Do not use this to process your worst memories alone.</p>
-        <p>Safe for: general stress, mild anxiety, relaxation, winding down, grounding.</p>
+        <p><strong>Safe for:</strong> general stress, mild anxiety, relaxation, winding down, grounding.</p>
         <p>If you feel overwhelmed: stop, open your eyes, feel your feet on the floor, breathe slowly. You are safe.</p>
-        <div class="crisis-line">
-          If you're in crisis:
-          <a href="tel:131114">Lifeline 13 11 14</a> (AU) &middot;
+        <div class="crisis">
+          Crisis lines:
+          <a href="tel:131114">13 11 14</a> (AU) &middot;
           <a href="tel:988">988</a> (US) &middot;
           <a href="tel:116123">116 123</a> (UK)
         </div>
       </div>
-      <div class="footer-links">
-        <span>Made with care. Completely free. No tracking.</span>
-        <a href="https://github.com/astraedus/bilateral" target="_blank" rel="noopener">Open Source</a>
-        <span class="separator">&middot;</span>
-        <a href="https://arc.astraedus.dev" target="_blank" rel="noopener">Arc Journal</a>
+
+      <div class="footer-info">
+        <p>Made with care. Completely free. No tracking.</p>
+        <p><a href="https://github.com/astraedus/bilateral" target="_blank" rel="noopener">Open Source</a> &middot; <a href="https://arc.astraedus.dev" target="_blank" rel="noopener">Arc Journal</a></p>
       </div>
-    </footer>
+    </div>
   </div>
 
   <script src="app.js"></script>
 
-  <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Bilateral",
     "description": "Free, open-source EMDR bilateral stimulation tool with visual, audio, and haptic modes.",
-    "url": "https://bilateral.astraedus.dev",
+    "url": "https://astraedus.github.io/bilateral/",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "Any",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "creator": {
-      "@type": "Organization",
-      "name": "Arc",
-      "url": "https://arc.astraedus.dev"
-    }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "creator": { "@type": "Organization", "name": "Arc", "url": "https://arc.astraedus.dev" }
   }
   </script>
 </body>
