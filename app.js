@@ -20,12 +20,12 @@
     audio: false,
     haptic: false,
     speed: 1.0,
-    setDuration: 30,
+    setDuration: 45,
     restDuration: 10,
     numSets: 6,
     autoAdvance: true,
     currentSet: 0,
-    timeLeft: 30,
+    timeLeft: 45,
     resting: false,
     toneType: 'sine',
     freq: 440,
@@ -42,6 +42,8 @@
     osc: null,
     pan: null,
     gain: null,
+    out: null,        // master headroom gain
+    limiter: null,    // brick-wall limiter — clip protection
     noise: null,
     noiseGain: null,
     // touch
@@ -72,6 +74,7 @@
     speedVal: $('#speed-val'),
     settingsToggle: $('#settings-toggle'),
     infoToggle: $('#info-toggle'),
+    fullscreenToggle: $('#fullscreen-toggle'),
     settingsDrawer: $('#settings-drawer'),
     infoDrawer: $('#info-drawer'),
     drawerClose: $('#drawer-close'),
@@ -91,12 +94,16 @@
   function load() {
     try {
       const d = JSON.parse(localStorage.getItem('bilateral') || '{}');
+      // Migration: anyone still on the old 30s default gets bumped to the new
+      // 45s default so sets aren't cut short. A deliberately-chosen value is kept.
+      let setDur = d.setDuration ?? 45;
+      if ((d.v ?? 1) < 2 && d.setDuration === 30) setDur = 45;
       Object.assign(S, {
         speed: d.speed ?? 1.0,
         visual: d.visual ?? true,
         audio: d.audio ?? false,
         haptic: d.haptic ?? false,
-        setDuration: d.setDuration ?? 30,
+        setDuration: setDur,
         restDuration: d.restDuration ?? 10,
         numSets: d.numSets ?? 6,
         autoAdvance: d.autoAdvance ?? true,
@@ -113,6 +120,7 @@
   function save() {
     try {
       localStorage.setItem('bilateral', JSON.stringify({
+        v: 2,
         speed: S.speed, visual: S.visual, audio: S.audio, haptic: S.haptic,
         setDuration: S.setDuration, restDuration: S.restDuration, numSets: S.numSets,
         autoAdvance: S.autoAdvance, toneType: S.toneType, freq: S.freq, vol: S.vol,
@@ -157,7 +165,10 @@
   function animate(ts) {
     if (!S.running) return;
     if (!S.lastTs) S.lastTs = ts;
-    const dt = (ts - S.lastTs) / 1000;
+    // Clamp dt: if the tab was backgrounded, requestAnimationFrame stalls and
+    // (ts - lastTs) can be seconds. An unclamped dt would jump the phase — and
+    // with it the audio pan — instantly on refocus, producing an audible snap.
+    const dt = Math.min((ts - S.lastTs) / 1000, 0.05);
     S.lastTs = ts;
 
     if (!S.paused && !S.resting) {
@@ -197,17 +208,21 @@
     // Continuous tones pan smoothly in animate() — clicks snap discretely here
     // Click sound
     if (S.audio && S.toneType === 'click' && S.ctx) {
+      const dest = S.out || S.ctx.destination;
+      const now = S.ctx.currentTime;
       const o = S.ctx.createOscillator();
       const g = S.ctx.createGain();
       const p = S.ctx.createStereoPanner();
       o.type = 'sine';
       o.frequency.value = 700;
-      g.gain.setValueAtTime(S.vol * 0.25, S.ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, S.ctx.currentTime + 0.06);
+      // Soft onset + decay (ramp up from near-zero) so the click has no hard edge.
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(S.vol * 0.25, now + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
       p.pan.value = side === 'left' ? -1 : 1;
-      o.connect(g).connect(p).connect(S.ctx.destination);
-      o.start();
-      o.stop(S.ctx.currentTime + 0.06);
+      o.connect(g).connect(p).connect(dest);
+      o.start(now);
+      o.stop(now + 0.07);
     }
     // Haptic
     if (S.haptic && navigator.vibrate) {
@@ -216,25 +231,55 @@
   }
 
   // ---- Audio Engine ----
+  // Signal path:  [tone / noise] -> pan (bilateral) -> out (headroom) -> limiter -> speakers
+  //
+  // The limiter (a DynamicsCompressor acting as a brick wall at 0 dBFS) and the
+  // headroom gain together guarantee the output can never spike loud or hard-clip,
+  // no matter how sounds sum (a rest chime landing over a still-fading tone,
+  // overlapping clicks, a full-volume tone). Hard clipping at the destination was
+  // the cause of the "random loud / high-pitched buzz": a max-volume sine sits at
+  // 0 dBFS, so any added sound pushed the sum past the ceiling and clipped, adding
+  // harsh high-frequency harmonics. Everything now routes through the limiter.
   function audioStart() {
     if (S.ctx) return;
     S.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    S.limiter = S.ctx.createDynamicsCompressor();
+    S.limiter.threshold.value = 0;   // only act on signal that would otherwise clip
+    S.limiter.knee.value = 0;
+    S.limiter.ratio.value = 20;      // brick wall above 0 dBFS
+    S.limiter.attack.value = 0.003;
+    S.limiter.release.value = 0.1;
+    S.limiter.connect(S.ctx.destination);
+
+    // Headroom so a steady full-volume tone peaks safely below 0 dBFS and never
+    // engages the limiter (which would otherwise distort the pure sine).
+    S.out = S.ctx.createGain();
+    S.out.gain.value = 0.85;
+    S.out.connect(S.limiter);
+
     S.gain = S.ctx.createGain();
     S.pan = S.ctx.createStereoPanner();
-    S.gain.gain.value = S.vol;
-    S.gain.connect(S.pan).connect(S.ctx.destination);
+    S.gain.gain.value = 0.0001;      // start silent; toneStart fades in click-free
+    S.gain.connect(S.pan).connect(S.out);
     toneStart();
   }
 
   function toneStart() {
     if (!S.ctx) return;
     toneStop();
+    const now = S.ctx.currentTime;
     if (S.toneType === 'sine') {
       S.osc = S.ctx.createOscillator();
       S.osc.type = 'sine';
       S.osc.frequency.value = S.freq;
       S.osc.connect(S.gain);
       S.osc.start();
+      // Click-free fade-in to the correct level (stay silent if paused/resting).
+      const target = (S.paused || S.resting) ? 0.0001 : Math.max(0.0001, S.vol);
+      S.gain.gain.cancelScheduledValues(now);
+      S.gain.gain.setValueAtTime(0.0001, now);
+      S.gain.gain.exponentialRampToValueAtTime(target, now + 0.04);
     } else if (S.toneType === 'nature') {
       // Brown noise (rain-like)
       const len = 2 * S.ctx.sampleRate;
@@ -255,7 +300,7 @@
       filt.type = 'lowpass';
       filt.frequency.value = 700;
       S.noiseGain = S.ctx.createGain();
-      S.noiseGain.gain.value = S.vol * 0.4;
+      S.noiseGain.gain.value = (S.paused || S.resting) ? 0 : S.vol * 0.4;
       S.noise.connect(filt).connect(S.noiseGain).connect(S.pan);
       S.noise.start();
     }
@@ -263,7 +308,19 @@
   }
 
   function toneStop() {
-    try { S.osc?.stop(); } catch (_) {}
+    // Fade the sine out over a few ms before stopping so cutting it mid-cycle
+    // (e.g. on a tone switch) doesn't produce a click.
+    if (S.osc && S.ctx && S.gain) {
+      const now = S.ctx.currentTime;
+      try {
+        S.gain.gain.cancelScheduledValues(now);
+        S.gain.gain.setValueAtTime(Math.max(0.0001, S.gain.gain.value), now);
+        S.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+        S.osc.stop(now + 0.04);
+      } catch (_) { try { S.osc.stop(); } catch (__) {} }
+    } else {
+      try { S.osc?.stop(); } catch (_) {}
+    }
     try { S.noise?.stop(); } catch (_) {}
     S.osc = null;
     S.noise = null;
@@ -271,30 +328,41 @@
   }
 
   function audioStop() {
-    toneStop();
-    S.ctx?.close();
-    S.ctx = null;
-    S.pan = null;
-    S.gain = null;
+    const ctx = S.ctx;
+    if (!ctx) { return; }
+    // Fade the master out, then tear down after the fade so stopping a session
+    // is click-free. Detach live refs immediately so nothing touches dead nodes.
+    const out = S.out, osc = S.osc, noise = S.noise;
+    const now = ctx.currentTime;
+    try { if (out) out.gain.setTargetAtTime(0.0001, now, 0.02); } catch (_) {}
+    S.osc = S.noise = S.noiseGain = S.gain = S.pan = S.out = S.limiter = S.ctx = null;
+    setTimeout(() => {
+      try { if (osc) osc.stop(); } catch (_) {}
+      try { if (noise) noise.stop(); } catch (_) {}
+      try { ctx.close(); } catch (_) {}
+    }, 100);
   }
 
   // ---- Rest chime ----
   function chime() {
     if (!S.ctx) return;
+    const dest = S.out || S.ctx.destination;   // through the limiter, never raw destination
+    const now = S.ctx.currentTime;
     const o1 = S.ctx.createOscillator();
     const o2 = S.ctx.createOscillator();
     const g = S.ctx.createGain();
     o1.type = o2.type = 'sine';
     o1.frequency.value = 523;
     o2.frequency.value = 659;
-    g.gain.setValueAtTime(0.12, S.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, S.ctx.currentTime + 1.2);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.12, now + 0.02);   // soft onset, no click
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
     o1.connect(g);
     o2.connect(g);
-    g.connect(S.ctx.destination);
-    o1.start(); o2.start();
-    o1.stop(S.ctx.currentTime + 1.2);
-    o2.stop(S.ctx.currentTime + 1.2);
+    g.connect(dest);
+    o1.start(now); o2.start(now);
+    o1.stop(now + 1.25);
+    o2.stop(now + 1.25);
   }
 
   // ---- Set Timer ----
@@ -457,6 +525,29 @@
     el.infoToggle.classList.remove('open');
   }
 
+  // ---- Fullscreen ----
+  function fsElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function toggleFullscreen() {
+    if (!fsElement()) {
+      const d = document.documentElement;
+      const req = d.requestFullscreen || d.webkitRequestFullscreen;
+      if (req) { const p = req.call(d); if (p && p.catch) p.catch(() => {}); }
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) exit.call(document);
+    }
+  }
+
+  function syncFullscreenBtn() {
+    if (!el.fullscreenToggle) return;
+    const on = !!fsElement();
+    el.fullscreenToggle.classList.toggle('open', on);
+    el.fullscreenToggle.setAttribute('aria-label', on ? 'Exit fullscreen' : 'Fullscreen');
+  }
+
   // ---- Touch reveal (mobile: tap to show controls while immersed) ----
   function setupTouchReveal() {
     el.canvas.addEventListener('pointerdown', () => {
@@ -529,6 +620,11 @@
 
     el.drawerClose.addEventListener('click', closeDrawers);
     el.infoClose.addEventListener('click', closeDrawers);
+
+    // Fullscreen
+    if (el.fullscreenToggle) el.fullscreenToggle.addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', syncFullscreenBtn);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
 
     // Close drawer on outside click
     el.canvas.addEventListener('click', (e) => {
@@ -608,7 +704,13 @@
         if (!S.running || S.paused) start();
         else pause();
       }
+      if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
       if (e.key === 'Escape') {
+        // If fullscreen, Escape just leaves fullscreen (browser handles it) —
+        // don't also stop the session out from under the user.
+        if (fsElement()) return;
         if (S.running) stop();
         closeDrawers();
       }

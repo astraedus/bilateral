@@ -93,12 +93,17 @@
       <button id="info-toggle" class="btn-icon" aria-label="How to use">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </button>
+
+      <!-- Fullscreen toggle -->
+      <button id="fullscreen-toggle" class="btn-icon" aria-label="Fullscreen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg>
+      </button>
     </div>
 
     <!-- Set progress (visible during session) -->
     <div id="set-bar" class="hidden">
       <div id="set-dots"></div>
-      <span id="timer" class="timer-text">0:30</span>
+      <span id="timer" class="timer-text">0:45</span>
     </div>
   </div>
 
@@ -112,8 +117,8 @@
         <h4>Set Timer</h4>
         <div class="s-row">
           <span>Duration</span>
-          <input type="range" id="set-dur" min="10" max="120" step="5" value="30" class="slider-sm">
-          <span id="set-dur-v" class="s-val">30s</span>
+          <input type="range" id="set-dur" min="10" max="120" step="5" value="45" class="slider-sm">
+          <span id="set-dur-v" class="s-val">45s</span>
         </div>
         <div class="s-row">
           <span>Rest</span>
